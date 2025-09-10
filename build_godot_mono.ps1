@@ -270,7 +270,7 @@ if ($exitCode -ne 0) { Write-Error "SCons build failed."; exit 1 }
 $currentStep++
 
 # -----------------------------
-# Step 6: Copy Steam API DLL into bin before final build
+# Step 6b: Copy Steam API DLL into bin before final build
 # -----------------------------
 Show-Progress -Message "Copying steam_api64.dll into bin for final build..."
 $steamDllSource = Join-Path $godotSourceDir "modules\godotsteam\sdk\redistributable_bin\win64\steam_api64.dll"
@@ -281,9 +281,10 @@ if (Test-Path $steamDllSource) {
 } else {
     Write-Log "steam_api64.dll not found at $steamDllSource. Skipping copy."
 }
+$currentStep++
 
 # -----------------------------
-# Step 6b: Generate Mono glue files
+# Step 6: Generate Mono glue files
 # -----------------------------
 Show-Progress -Message "Generating Mono glue files..."
 $gluePath = Join-Path $godotSourceDir "modules\mono\glue"
@@ -324,13 +325,25 @@ $exportVersion = "$versionNumber.$GodotBuildName.mono"
 $exportDir = Join-Path $env:APPDATA "Godot\export_templates\$exportVersion"
 if (-not (Test-Path $exportDir)) { New-Item -ItemType Directory -Path $exportDir -Force | Out-Null }
 
-$debugTemplate = Join-Path $binPath "godot.windows.template_debug.x86_64.mono.exe"
-$debugDest = Join-Path $exportDir "windows_debug_x86_64.exe"
-Copy-Item -Path $debugTemplate -Destination $debugDest -Force
+# Define templates
+$templates = @(
+    @{ Src="godot.windows.template_debug.x86_64.mono.exe"; Dest="windows_debug_x86_64.exe" },
+    @{ Src="godot.windows.template_release.x86_64.mono.exe"; Dest="windows_release_x86_64.exe" },
+    @{ Src="godot.windows.template_debug.x86_64.mono.console.exe"; Dest="windows_debug_x86_64_console.exe" },
+    @{ Src="godot.windows.template_release.x86_64.mono.console.exe"; Dest="windows_release_x86_64_console.exe" }
+)
 
-$releaseTemplate = Join-Path $binPath "godot.windows.template_release.x86_64.mono.exe"
-$releaseDest = Join-Path $exportDir "windows_release_x86_64.exe"
-Copy-Item -Path $releaseTemplate -Destination $releaseDest -Force
+foreach ($t in $templates) {
+    $srcPath = Join-Path $binPath $t.Src
+    $destPath = Join-Path $exportDir $t.Dest
+
+    if (Test-Path $srcPath) {
+        Copy-Item -Path $srcPath -Destination $destPath -Force
+        Write-Host "Copied $($t.Src) -> $($t.Dest)"
+    } else {
+        Write-Warning "Template not found: $($t.Src), skipping..."
+    }
+}
 
 # Delete old build artifacts
 $patternsToDelete = @(
@@ -340,6 +353,7 @@ $patternsToDelete = @(
 foreach ($pattern in $patternsToDelete) {
     Get-ChildItem -Path $binPath -Filter $pattern -File -ErrorAction SilentlyContinue | Remove-Item -Force
 }
+
 $currentStep++
 
 # -----------------------------
