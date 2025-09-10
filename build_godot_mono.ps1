@@ -1,4 +1,4 @@
-﻿param (
+param (
     [switch]$CloneNewVersion,
     [string]$GodotBuildName,
     [string]$NugetSourcePath = "C:\MyLocalNugetSource"
@@ -340,6 +340,22 @@ $currentStep++
 Show-Progress -Message "Building final editor binary..."
 $exitCode = Run-Command "scons" "-C $godotDir p=windows target=editor tools=yes module_mono_enabled=yes GODOT_VERSION_STATUS=$VersionStatus"
 if ($exitCode -ne 0) { Write-Error "Final SCons build failed."; exit 1 }
+$currentStep++
+
+# -----------------------------
+# Step 5b: Build Windows export templates
+# -----------------------------
+Show-Progress -Message "Building Windows export templates (Debug & Release)..."
+
+# Build Debug template
+$exitCode = Run-Command "scons" "-C $godotDir platform=windows target=template_debug module_mono_enabled=yes"
+if ($exitCode -ne 0) { Write-Error "Debug export template build failed."; exit 1 }
+
+# Build Release template
+$exitCode = Run-Command "scons" "-C $godotDir platform=windows target=template_release module_mono_enabled=yes"
+if ($exitCode -ne 0) { Write-Error "Release export template build failed."; exit 1 }
+
+Write-Log "Windows export templates built successfully."
 $currentStep++
 
 # -----------------------------
