@@ -48,7 +48,7 @@ The script will automatically prompt you to select the correct SDK.
     * Choose whether to clone a new Godot version or use an an existing folder.
     * Select the Godot version to clone (if cloning).
     * Choose the Steamworks SDK ZIP to use.
-    * Wait while the script clones modules, builds the editor, generates Mono glue files, and copies `steam_api64.dll` to the bin folder.
+    * Wait while the script clones modules, builds the editor, generates Mono glue files, exports templates, and copies `steam_api64.dll` to the bin folder.
 
 Once complete, your custom Godot Mono editor will be in the **bin** folder inside the source directory.
 
@@ -78,6 +78,7 @@ build_script_folder/
 * Ensure your paths do not contain special characters (like `#`, `&`, `@`) as SCons or Git may fail.
 * Logs are saved to `build_log.txt` in the script folder for troubleshooting.
 * Works on Windows 11 with the above prerequisites installed.
+* Keep in mind that you do have to ship `steam_api64.dll` with the executable when exporting
 
 ---
 
