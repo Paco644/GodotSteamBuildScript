@@ -270,7 +270,20 @@ if ($exitCode -ne 0) { Write-Error "SCons build failed."; exit 1 }
 $currentStep++
 
 # -----------------------------
-# Step 6: Generate Mono glue files
+# Step 6: Copy Steam API DLL into bin before final build
+# -----------------------------
+Show-Progress -Message "Copying steam_api64.dll into bin for final build..."
+$steamDllSource = Join-Path $godotSourceDir "modules\godotsteam\sdk\redistributable_bin\win64\steam_api64.dll"
+$steamDllDestination = Join-Path $binPath "steam_api64.dll"
+if (Test-Path $steamDllSource) {
+    Copy-Item -Path $steamDllSource -Destination $steamDllDestination -Force
+    Write-Log "steam_api64.dll copied to bin for final build."
+} else {
+    Write-Log "steam_api64.dll not found at $steamDllSource. Skipping copy."
+}
+
+# -----------------------------
+# Step 6b: Generate Mono glue files
 # -----------------------------
 Show-Progress -Message "Generating Mono glue files..."
 $gluePath = Join-Path $godotSourceDir "modules\mono\glue"
@@ -279,6 +292,7 @@ $glueArgs = "--headless --generate-mono-glue `"$gluePath`""
 $process = Start-Process -FilePath $glueCommand -ArgumentList $glueArgs -WorkingDirectory $godotSourceDir -NoNewWindow -Wait -PassThru
 if ($process.ExitCode -ne 0) { Write-Error "Mono glue generation failed. Exit code: $($process.ExitCode)"; exit 1 }
 $currentStep++
+
 
 # -----------------------------
 # Step 7: Build final editor binary
