@@ -173,7 +173,7 @@ if ($CloneNewVersion) {
         }
     }
 
-    $versionMatch = [regex]::Match($GodotBranchName, "(\d+\.\d+\.\d+)")
+    $versionMatch = [regex]::Match($GodotBranchName, "(\d+\.\d+(\.\d+)?)")
     if (-not $versionMatch.Success) {
         Write-Error "Could not parse Godot version from branch name '$GodotBranchName'."
         exit 1
@@ -245,9 +245,106 @@ $currentStep++
 # -----------------------------
 # Step 3: Clone repos & prepare SDK
 # -----------------------------
-Show-Progress -Message "Cloning repositories and preparing Steamworks SDK..."
+# -----------------------------
+# Step 3: Clone repos if needed
+# -----------------------------
 if ($CloneNewVersion) {
-    # ... [Same logic as your script for cloning Godot, modules, and SDK] ...
+
+    # 1. Choose Steamworks SDK from local folder
+    $sdkFolder = Join-Path $PSScriptRoot "sdks"
+    if (-not (Test-Path $sdkFolder)) {
+        Write-Host "SDK folder not found. Creating $sdkFolder..."
+        New-Item -ItemType Directory -Path $sdkFolder | Out-Null
+    }
+
+    $availableSDKs = Get-ChildItem -Path $sdkFolder -Filter "*.zip"
+
+    if ($availableSDKs.Count -eq 0) {
+        Write-Error "No Steamworks SDK ZIPs found in $sdkFolder. Please add SDKs before continuing."
+        exit 1
+    }
+
+    # If only one SDK, select automatically
+    if ($availableSDKs.Count -eq 1) {
+        $chosenSDK = $availableSDKs[0].Name
+        Write-Host "Only one SDK found. Using: $chosenSDK"
+    } else {
+        Write-Host "Available Steamworks SDK versions:"
+        for ($i = 0; $i -lt $availableSDKs.Count; $i++) {
+            Write-Host "[$i] $($availableSDKs[$i].Name)"
+        }
+
+        $selection = Read-Host "Enter the number of the Steamworks SDK version you want to use"
+        if ($selection -match '^\d+$' -and $selection -ge 0 -and $selection -lt $availableSDKs.Count) {
+            $chosenSDK = $availableSDKs[$selection].Name
+        } else {
+            Write-Error "Invalid selection. Exiting."
+            exit 1
+        }
+    }
+
+    Write-Log "Chosen Steamworks SDK: $chosenSDK"
+    $zipPath = Join-Path $sdkFolder $chosenSDK
+
+    # 2. Clone Godot repo using already selected branch
+    Show-Progress -Message "Cloning Godot..."
+    Write-Log "Starting full setup for Godot branch '$GodotBranchName'..."
+    if (Test-Path $godotSourceDir) { Remove-Item -Path $godotSourceDir -Recurse -Force }
+
+    $exitCode = Run-Command "git" "clone -b $GodotBranchName https://github.com/godotengine/godot.git $godotSourceDir"
+    if ($exitCode -ne 0) { Write-Error "Git clone failed."; exit 1 }
+    $currentStep++
+
+    # 3. Clone GodotSteam modules
+    Show-Progress -Message "Cloning GodotSteam modules..."
+    $modulesPath = Join-Path $godotSourceDir "modules"
+    if (-not (Test-Path $modulesPath)) { New-Item -ItemType Directory -Path $modulesPath | Out-Null }
+
+    Run-Command "git" "clone -b godot4 https://codeberg.org/godotsteam/godotsteam.git `"$modulesPath\godotsteam`""
+    Run-Command "git" "clone -b main https://codeberg.org/godotsteam/multiplayerpeer.git `"$modulesPath\godotsteam_multiplayer_peer`""
+    $currentStep++
+
+    # 4. Prepare Steamworks SDK
+    Show-Progress -Message "Preparing Steamworks SDK..."
+    $tempDir = Join-Path $PSScriptRoot "temp_sdk"
+    if (Test-Path $tempDir) { Remove-Item -Path $tempDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $tempDir | Out-Null
+
+    if (-not (Test-Path $zipPath)) {
+        Write-Error "Chosen SDK ZIP not found at $zipPath. Cannot continue."
+        exit 1
+    }
+
+    try {
+        # Expand the SDK archive
+        Expand-Archive -Path $zipPath -DestinationPath $tempDir -Force -ErrorAction Stop
+        Write-Log "Steamworks SDK archive expanded successfully."
+
+        # Prepare target SDK folder
+        $sdkTarget = Join-Path $godotSourceDir "modules\godotsteam\sdk"
+        if (-not (Test-Path $sdkTarget)) { New-Item -ItemType Directory -Path $sdkTarget | Out-Null }
+
+        # Copy public folder
+        $publicSrc = Join-Path $tempDir "sdk\public"
+        $publicDest = Join-Path $sdkTarget "public"
+        Copy-Item -Path $publicSrc -Destination $publicDest -Recurse -Force
+
+        # Copy redistributable_bin folder
+        $redistSrc = Join-Path $tempDir "sdk\redistributable_bin"
+        $redistDest = Join-Path $sdkTarget "redistributable_bin"
+        Copy-Item -Path $redistSrc -Destination $redistDest -Recurse -Force
+
+        Write-Log "Steamworks SDK files copied to Godot modules."
+    }
+    catch {
+        Write-Error "Failed to extract or copy Steamworks SDK: $_"
+        exit 1
+    }
+    finally {
+        if (Test-Path $tempDir) { Remove-Item -Path $tempDir -Recurse -Force }
+    }
+} else {
+    Write-Log "Skipping cloning. Using existing Steamworks SDK if available."
 }
 $currentStep++
 
