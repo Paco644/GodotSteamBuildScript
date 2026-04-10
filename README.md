@@ -1,87 +1,207 @@
-# GodotSteam Custom Build Script
+# Godot Engine Build Script for Windows (Mono)
 
-This PowerShell script allows users to create a **custom Godot Mono editor build** with the **GodotSteam module** and C# support. It automates cloning Godot, integrating modules, building Mono glue files, and copying required SDK files.
+Automated PowerShell script to compile Godot Engine with C# support (Mono), custom modules, and Steam integration on Windows.
 
----
+## Features
 
-## ⚙️ Prerequisites
+- Auto-clone Godot versions from GitHub
+- Custom modules management (godotsteam, etc.)
+- Mono/C# support with auto glue generation
+- Steam SDK integration
+- DirectX 12 support
+- Parallel builds
+- Export templates auto-configuration
+- NuGet package management
+- Build history tracking (builds.json)
+- Detailed logging
 
-Before running the script, ensure your system has the following installed and available in your `PATH`:
+## Requirements
 
--   **Git** (for cloning repositories)
--   **SCons** (build system for Godot)
--   **Python 3** (used for Mono assemblies build)
--   **Mono/.NET SDK** (for C# support and NuGet)
--   **PowerShell 5+** (Windows 11 includes this by default)
+### System
+- **Windows 10/11** (64-Bit)
+- **PowerShell 7.0+** (NOT Windows PowerShell 5.1)
+- **8GB RAM minimum** (16GB recommended)
+- **50GB+ free space** per Godot version
 
-> If the script is blocked by PowerShell execution policy, run it with:
->
-> ```powershell
-> powershell -ExecutionPolicy Bypass -File build_godot_mono.ps1
-> ```
+### Required Tools
+The script automatically installs via **Scoop**:
 
----
+| Tool | Purpose |
+|------|---------|
+| **Git** | Clone Godot and modules |
+| **Python 3.x** | Godot build system |
+| **OpenSSL** | Encryption key generation |
+| **SCons** | Godot compiler |
+| **.NET SDK** | Mono assembly building |
 
-## 📦 Steamworks SDK
+### Optional
+- **Steam SDK** (ZIP file for godotsteam module)
 
-You need a **Steamworks SDK ZIP** (cannot be distributed due to legal restrictions):
+## Quick Start
 
-1.  Download from the [Steamworks Partner Site](https://partner.steamgames.com/downloads/steamworks_sdk).
-2.  Create a folder named `sdks` in the same directory as the script.
-3.  Place your Steamworks SDK ZIP(s) inside the `sdks` folder.
-
-The script will automatically prompt you to select the correct SDK.
-
----
-
-## 📝 Usage
-
-1.  Open PowerShell and navigate to the script folder:
-    ```powershell
-    cd path\to\script
-    ```
-2.  Run the script:
-    ```powershell
-    .\build_godot_mono.ps1
-    ```
-3.  Follow the interactive prompts:
-    * Choose whether to clone a new Godot version or use an an existing folder.
-    * Select the Godot version to clone (if cloning).
-    * Choose the Steamworks SDK ZIP to use.
-    * Wait while the script clones modules, builds the editor, generates Mono glue files, exports templates, and copies `steam_api64.dll` to the bin folder.
-
-Once complete, your custom Godot Mono editor will be in the **bin** folder inside the source directory.
-
-Local NuGet packages (for Mono assemblies) will be pushed to the folder specified in the script (default: `C:\MyLocalNugetSource`).
-
-### 📂 Folder Structure Example
-```
-build_script_folder/
-├─ build_godot_mono.ps1
-├─ sdks/
-│  ├─ steamworks_sdk_162.zip
-├─ godot_custom_build/   # created by script after cloning Godot
-│  ├─ bin/
-│  │  ├─ godot.windows.editor.x86_64.mono.exe
-│  │  └─ steam_api64.dll
-│  └─ modules/
-│     ├─ godotsteam/
-│     └─ godotsteam_multiplayer_peer/
+### 1. Install PowerShell 7
+```powershell
+scoop install pwsh
 ```
 
----
+### 2. Clone Repository
+```bash
+git clone <your-repo>
+cd godot-build-script
+```
 
-## ⚠️ Notes
+### 3. Create Configuration
 
-* The script does not download the Steamworks SDK automatically. You must provide it locally.
-* If any required tool is missing, the script will exit with instructions.
-* Ensure your paths do not contain special characters (like `#`, `&`, `@`) as SCons or Git may fail.
-* Logs are saved to `build_log.txt` in the script folder for troubleshooting.
-* Works on Windows 11 with the above prerequisites installed.
-* Keep in mind that you do have to ship `steam_api64.dll` with the executable when exporting
+#### `modules.json` (required)
+```json
+{
+  "modules": [
+    {
+      "name": "godotsteam",
+      "repo": "https://github.com/Gramps/GodotSteam.git",
+      "branch": "main",
+      "enabled_by_default": true
+    }
+  ]
+}
+```
 
----
+#### Place Steam SDK (optional)
+- Put Steam SDK ZIP in `sdks/` folder
+- Example: `sdks/steamworks_sdk_159.zip`
 
-## ✅ Support & Contributions
+### 4. Set Execution Policy
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+```
 
-This script is intended for educational and community use. Feel free to fork and improve the script, add GUI support, or adapt it for other modules.
+## Usage
+
+### Simple Start
+```powershell
+.\build_godot.ps1
+```
+
+The script will prompt you to:
+1. Clone new version or use existing
+2. Select Godot version
+3. Enter build name
+4. Select modules
+5. Choose Steam SDK (if godotsteam enabled)
+
+### With Parameters
+```powershell
+# Clone new version
+.\build_godot.ps1 -CloneNewVersion -GodotBuildName "myproject"
+
+# Custom NuGet path
+.\build_godot.ps1 -NugetSourcePath "D:\MyNugetPackages"
+
+# Custom encryption key path
+.\build_godot.ps1 -EncryptionKeyPath "C:\secure\my.gdkey"
+```
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|------------|
+| `-CloneNewVersion` | Switch | `$false` | Clone new Godot version |
+| `-GodotBuildName` | String | - | Build name (e.g., "skytech") |
+| `-EncryptionKeyPath` | String | `"godot.gdkey"` | AES-256 encryption key path |
+| `-NugetSourcePath` | String | `"C:\MyLocalNugetSource"` | Local NuGet feed path |
+
+## Directory Structure
+
+```
+project-root/
+├── build_godot.ps1           # Main script
+├── modules.json              # Modules config
+├── builds.json               # Build history (auto-created)
+├── build_log.txt             # Build log (auto-created)
+├── sdks/                      # Steam SDK ZIPs
+├── custom_modules/           # Cloned modules
+└── 4.4.1.skytech/            # Godot source + binaries
+    └── bin/                   # Compiled EXEs
+```
+
+## Build Outputs
+
+### Editor
+```
+<version-folder>/bin/
+├── godot.windows.editor.x86_64.mono.exe
+└── godot.windows.editor.x86_64.mono.console.exe
+```
+
+### Export Templates
+```
+%APPDATA%/Godot/export_templates/<version>/
+├── windows_debug_x86_64.exe
+├── windows_release_x86_64.exe
+├── windows_debug_x86_64_console.exe
+└── windows_release_x86_64_console.exe
+```
+
+### NuGet Packages
+```
+<NugetSourcePath>/
+└── *.nupkg
+```
+
+## Troubleshooting
+
+### Build Error "scons: *** Error 1"
+```powershell
+# Clean temp files
+Remove-Item -Path "custom_modules" -Recurse -Force
+Remove-Item -Path "temp_sdk" -Recurse -Force
+
+# Try again
+.\build_godot.ps1
+```
+
+### "Mono glue generation failed"
+- Ensure sufficient RAM
+- Check build_log.txt for details
+- Verify editor EXE was built correctly
+
+### "No Steam SDK ZIP found"
+- Download Steam SDK from Valve partner portal
+- Place ZIP in `sdks/` folder
+
+### Module clone failed
+```powershell
+# Check network connection
+Test-NetConnection github.com -Port 443
+
+# Update module manually
+cd custom_modules\godotsteam
+git pull origin main
+```
+
+## Build History
+
+Builds are saved in `builds.json`:
+```json
+{
+  "4.4.1.skytech": {
+    "folder": "4.4.1.skytech",
+    "version": "4.4.1-stable",
+    "buildName": "skytech",
+    "selected_modules": ["godotsteam"],
+    "created": "2024-12-15T10:30:00"
+  }
+}
+```
+
+Reuse existing builds without cloning again!
+
+## License
+
+MIT License
+
+## Support
+
+- [Godot Documentation](https://docs.godotengine.org/)
+- [Godot GitHub Issues](https://github.com/godotengine/godot/issues)
+- [Godot Discord](https://discord.gg/godotengine)
