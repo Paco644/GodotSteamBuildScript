@@ -46,7 +46,7 @@ scoop install pwsh
 
 ### 2. Clone Repository
 ```bash
-git clone <your-repo>
+gh repo clone Paco644/GodotSteamBuildScript
 cd godot-build-script
 ```
 
